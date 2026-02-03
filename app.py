@@ -20,11 +20,9 @@ st.markdown("""
             padding-top: 2rem !important;
             padding-bottom: 1rem !important;
         }
-        img {
-            border-radius: 8px;
-        }
+        /* 调整多选框的位置 */
         .stCheckbox {
-            margin-top: -10px;
+            margin-top: 5px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -37,12 +35,9 @@ if 'scraped_images' not in st.session_state:
 if 'zip_buffer' not in st.session_state:
     st.session_state.zip_buffer = None
 
-# --- 关键修改：定义一个回调函数来处理全选逻辑 ---
+# --- 全选/全不选的回调函数 ---
 def toggle_all():
-    # 获取“全选”按钮当前的状态（是 True 还是 False）
     is_all_selected = st.session_state.select_all_key
-    
-    # 遍历所有图片的 key，强制把它们的状态改成和“全选”按钮一样
     if 'scraped_images' in st.session_state:
         for i in range(len(st.session_state.scraped_images)):
             key_name = f"img_chk_{i}"
@@ -57,7 +52,7 @@ with st.sidebar:
     3. **打包**：点击“生成压缩包”。
     4. **下载**：点击出现的“下载”按钮保存。
     """)
-    st.info("💡 图片预览加载可能需要几秒钟，请耐心等待。")
+    st.info("💡 如果图片加载较慢，请稍等片刻。")
     st.markdown("---")
     st.caption("Made with ❤️ TJH")
 
@@ -74,7 +69,7 @@ with col1:
 
 with col2:
     st.markdown("## 🎨 公众号图片提取")
-    st.caption("先解析，再挑选，只下你想要的！")
+    st.caption("解决图片不显示问题，只下你想要的！")
     st.markdown("---")
     
     url = st.text_input("👇 在此粘贴链接:", placeholder="https://mp.weixin.qq.com/s/...", label_visibility="collapsed")
@@ -102,6 +97,7 @@ with col2:
                     
                     for img in imgs:
                         src = img.get('data-src')
+                        # 过滤掉一些太短的无效链接
                         if src and len(src) > 20: 
                             found_imgs.append(src)
                     
@@ -112,7 +108,7 @@ with col2:
                         st.session_state.step = 2 
                         st.session_state.zip_buffer = None
                         
-                        # --- 关键修改：解析成功时，默认把所有图片状态设为 True (选中) ---
+                        # 解析成功时，默认全选
                         for i in range(len(found_imgs)):
                             st.session_state[f"img_chk_{i}"] = True
                             
@@ -129,8 +125,6 @@ if st.session_state.step >= 2 and st.session_state.scraped_images:
     # --- 全选/反选控制 ---
     col_sel1, col_sel2 = st.columns([1, 4])
     with col_sel1:
-        # 这里绑定了 on_change 回调函数
-        # 当你点击这个框时，toggle_all 函数会立即运行，把所有子选项刷成和它一样的状态
         st.checkbox("全选", value=True, key="select_all_key", on_change=toggle_all)
     with col_sel2:
         st.caption("取消勾选不需要的图片，然后点击底部的生成按钮。")
@@ -143,11 +137,20 @@ if st.session_state.step >= 2 and st.session_state.scraped_images:
         for i, img_url in enumerate(st.session_state.scraped_images):
             col = cols[i % 3] 
             with col:
+                # 优化链接预览
                 preview_url = img_url.replace("tp=webp", "tp=jpg")
-                st.image(preview_url, use_column_width=True)
                 
-                # key 是必须的，用于 session state 绑定
-                # 注意：这里不再设置 value=...，而是让 key 自动管理状态
+                # 🔥【核心修改点】使用 HTML + no-referrer 绕过防盗链 🔥
+                st.markdown(
+                    f'''
+                    <img src="{preview_url}" 
+                         style="width:100%; border-radius:8px; margin-bottom:5px; object-fit:cover; aspect-ratio: 1/1;" 
+                         referrerpolicy="no-referrer">
+                    ''', 
+                    unsafe_allow_html=True
+                )
+                
+                # 勾选框
                 is_checked = st.checkbox(f"图片 {i+1}", key=f"img_chk_{i}")
                 
                 if is_checked:
@@ -175,6 +178,7 @@ if st.session_state.step >= 2 and st.session_state.scraped_images:
                     for i, img_url in enumerate(valid_imgs_to_download):
                         progress_text.text(f"正在下载第 {i+1}/{total} 张...")
                         
+                        # 格式处理
                         fmt = "jpg"
                         img_url = img_url.replace("/640?from=appmsg", "/640?from=appmsg&tp=jpg")
                         img_url = img_url.replace("&tp=webp", "&tp=jpg")
