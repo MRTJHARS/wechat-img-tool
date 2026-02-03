@@ -66,25 +66,20 @@ if st.button("🚀 开始提取", type="primary"):
                 for i, img_url in enumerate(valid_imgs):
                     status_text.text(f"正在下载第 {i+1}/{total} 张图片...")
                     
-                    # 格式处理：强制转 JPG
-                    fmt = "jpg"
-                    # 替换 url 参数以获取 jpg
-                    if "wx_fmt=" in img_url:
-                        fmt = img_url.split("wx_fmt=")[1].split("&")[0]
+                    # =========== 修改重点：强制后缀名为 .jpg ===========
+                    fmt = "jpg" 
                     
-                    # 核心：把 webp 参数替换掉
+                    # 尝试修改 URL 参数以请求 JPG 格式（针对 webp 进行处理）
                     img_url = img_url.replace("/640?from=appmsg", "/640?from=appmsg&tp=jpg")
                     img_url = img_url.replace("&tp=webp", "&tp=jpg")
-                    
-                    # 如果本来就是 webp 且无法通过参数转换，强制后缀名为 jpg 也能骗过大部分查看器
-                    if fmt == "webp":
-                        fmt = "jpg"
+                    img_url = img_url.replace("wx_fmt=webp", "wx_fmt=jpg")
+                    # ===============================================
 
                     try:
                         # 下载图片二进制数据
                         img_data = requests.get(img_url, headers=headers, timeout=5).content
-                        # 写入 ZIP
-                        file_name = f"image_{success_count+1}.{fmt}"
+                        # 写入 ZIP，强制使用 .jpg 后缀
+                        file_name = f"image_{success_count+1}.jpg"
                         zf.writestr(file_name, img_data)
                         success_count += 1
                     except Exception as e:
@@ -92,7 +87,7 @@ if st.button("🚀 开始提取", type="primary"):
                     
                     # 更新进度条
                     progress_bar.progress((i + 1) / total)
-                    time.sleep(0.05) #稍微缓冲一下
+                    time.sleep(0.05) 
 
             progress_bar.progress(100)
             status_text.success(f"✅ 成功提取 {success_count} 张图片！")
