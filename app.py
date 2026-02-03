@@ -15,7 +15,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# ================= 2. 注入 CSS (美化版) =================
+# ================= 2. 注入 CSS (样式保持不变) =================
 st.markdown("""
     <style>
         .block-container {
@@ -172,7 +172,7 @@ with col2:
                 except Exception as e:
                     st.error(f"出错啦: {e}")
 
-# ================= 6. 局部刷新区域 (含布局修复) =================
+# ================= 6. 局部刷新区域 (包含修复后的布局逻辑) =================
 
 @st.fragment
 def show_gallery_area():
@@ -213,19 +213,24 @@ def show_gallery_area():
         c5.button("下一页 ➡️", on_click=next_page, disabled=(current_p == total_pages), use_container_width=True)
 
         with st.form("image_selection_form", border=False):
-            # 🔥 关键修改：按行渲染 🔥
-            # 每次处理3张图片，创建一行。这样在手机上就是 Block1(1,2,3) -> Block2(4,5,6)
-            # 保证了手机端顺序是 1,2,3,4,5,6...
-            for row_start in range(0, len(current_batch), 3):
-                cols = st.columns(3) # 创建新的一行（3列）
-                chunk = current_batch[row_start : row_start + 3] # 取出这一行的图片
+            # 🔥 布局修复核心：逐行渲染 🔥
+            # 我们不一次性创建3大列，而是每3张图创建一个新的“行容器”
+            # 这样在手机上，它就会按 行1 -> 行2 -> 行3 的顺序显示，就是 1,2,3,4,5...
+            
+            # 遍历每一行 (每行3个)
+            for i in range(0, len(current_batch), 3):
+                # 创建这一行的3个列容器
+                cols = st.columns(3)
+                # 获取这一行的3张图片
+                row_imgs = current_batch[i : i+3]
                 
-                for col_idx, img_url in enumerate(chunk):
-                    local_index = row_start + col_idx
-                    global_index = start_idx + local_index
-                    
-                    with cols[col_idx]:
+                # 填入这3张图
+                for j, img_url in enumerate(row_imgs):
+                    with cols[j]:
+                        local_index = i + j
+                        global_index = start_idx + local_index
                         preview_url = img_url.replace("tp=webp", "tp=jpg")
+                        
                         st.markdown(
                             f'''<div class="img-container"><img src="{preview_url}" loading="lazy" style="width:100%; display:block; aspect-ratio: 1/1; object-fit: cover;" referrerpolicy="no-referrer"></div>''', 
                             unsafe_allow_html=True
