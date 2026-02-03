@@ -113,7 +113,7 @@ with st.sidebar:
         """, unsafe_allow_html=True)
     st.success("💖 **甜蜜提示**\n原图直出不压缩，画质超清晰！")
     st.markdown("---")
-    st.caption("Made with ❤️ for Couples")
+    st.caption("Made with ❤️ TJH")
 
 # ================= 5. 主界面 =================
 col1, col2 = st.columns([1.3, 2], gap="large")
@@ -274,7 +274,7 @@ show_gallery_area()
 # ================= 7. 下载按钮 =================
 if st.session_state.step == 3 and st.session_state.zip_buffer:
     st.balloons()
-    st.success("✨ 打包完成啦！快去发朋友圈吧！")
+    st.success("✨ 打包完成啦！快去使用吧！")
     
     st.download_button(
         label="📦 点击下载图片包 (ZIP)",
@@ -293,3 +293,4 @@ if st.session_state.step == 3 and st.session_state.zip_buffer:
         keys_to_remove = [k for k in st.session_state.keys() if k.startswith("img_chk_")]
         for k in keys_to_remove: del st.session_state[k]
         st.rerun()
+
