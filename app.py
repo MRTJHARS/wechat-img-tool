@@ -44,11 +44,16 @@ if 'current_page' not in st.session_state:
 
 ITEMS_PER_PAGE = 12
 
-# --- 全选回调 (后台处理，速度极快) ---
+# --- 浏览器伪装头 (关键修复：必须用完整的长字符串) ---
+# 这是之前能成功抓取的关键，微信只认这个
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+}
+
+# --- 全选回调 ---
 def toggle_all():
     is_all_selected = st.session_state.select_all_key
     if 'scraped_images' in st.session_state:
-        # 直接修改 Session State，不涉及 UI 渲染
         for i in range(len(st.session_state.scraped_images)):
             st.session_state[f"img_chk_{i}"] = is_all_selected
 
@@ -63,14 +68,16 @@ def next_page():
     if st.session_state.current_page < total_pages:
         st.session_state.current_page += 1
 
-# --- 单张图片下载函数 ---
+# --- 单张图片下载函数 (多线程用) ---
 def download_one_image(img_info):
-    index, url, headers = img_info
+    index, url = img_info
+    # 格式修正
     url = url.replace("/640?from=appmsg", "/640?from=appmsg&tp=jpg")
     url = url.replace("&tp=webp", "&tp=jpg")
     url = url.replace("wx_fmt=webp", "wx_fmt=jpg")
     try:
-        r = requests.get(url, headers=headers, timeout=10)
+        # 下载时也要带上 HEADERS
+        r = requests.get(url, headers=HEADERS, timeout=10)
         if r.status_code == 200:
             return index, r.content
     except:
@@ -86,7 +93,7 @@ with st.sidebar:
     3. **打包**：点击生成 (🚀多线程下载)。
     4. **下载**：保存 ZIP 包。
     """)
-    st.info("⚡ **极速响应模式**\n点击全选不再卡顿！")
+    st.info("✅ **已修复解析问题**\n恢复完整伪装，准确抓取图片！")
     st.markdown("---")
     st.caption("Made with ❤️ TJH")
 
@@ -103,7 +110,7 @@ with col1:
 
 with col2:
     st.markdown("## ⚡ 公众号图片提取")
-    st.caption("分页预览 + 局部刷新 + 多线程下载")
+    st.caption("极速版：修复抓取失败问题")
     st.markdown("---")
     
     url = st.text_input("👇 在此粘贴链接:", placeholder="https://mp.weixin.qq.com/s/...", label_visibility="collapsed")
@@ -116,8 +123,8 @@ with col2:
         else:
             with st.spinner('正在分析网页...'):
                 try:
-                    headers = {'User-Agent': 'Mozilla/5.0'}
-                    resp = requests.get(url, headers=headers, timeout=10)
+                    # 使用修复后的完整 HEADERS
+                    resp = requests.get(url, headers=HEADERS, timeout=10)
                     resp.raise_for_status()
                     soup = BeautifulSoup(resp.text, 'html.parser')
                     content = soup.find(id="js_content")
@@ -128,11 +135,12 @@ with col2:
                     
                     for img in imgs:
                         src = img.get('data-src')
-                        if src and len(src) > 20: 
+                        # 稍微放宽过滤条件，防止漏掉图片
+                        if src and len(src) > 10: 
                             found_imgs.append(src)
                     
                     if not found_imgs:
-                        st.error("未找到图片。")
+                        st.error("未找到图片，可能是文章已删除或被加密。")
                     else:
                         st.session_state.scraped_images = found_imgs
                         st.session_state.step = 2 
@@ -145,11 +153,8 @@ with col2:
                 except Exception as e:
                     st.error(f"解析失败: {e}")
 
-# ================= 6. 核心：局部刷新区域 (解决卡顿的关键) =================
+# ================= 6. 核心：局部刷新区域 =================
 
-# 🔥 使用 @st.fragment 装饰器 🔥
-# 这意味着：当这个函数里的东西更新时，只有这个函数会重跑，页面其他部分不动！
-# 这样点击“全选”时，就不用重新加载标题、侧边栏和输入框了，速度快很多。
 @st.fragment
 def show_gallery_area():
     if st.session_state.step >= 2 and st.session_state.scraped_images:
@@ -168,7 +173,6 @@ def show_gallery_area():
         # --- 顶部控制栏 ---
         c1, c2, c3, c4 = st.columns([1.5, 1, 1, 1])
         with c1:
-            # 点击这里的全选，只会触发 show_gallery_area 的刷新
             st.checkbox("全选 (所有页)", value=True, key="select_all_key", on_change=toggle_all)
         with c2:
             st.button("⬅️ 上一页", on_click=prev_page, disabled=(current_p == 1), use_container_width=True)
@@ -205,11 +209,10 @@ def show_gallery_area():
                 else:
                     # --- 多线程下载逻辑 ---
                     tasks = []
-                    headers = {'User-Agent': 'Mozilla/5.0'}
                     valid_urls = [st.session_state.scraped_images[i] for i in selected_final_indices]
                     
                     for idx, url in enumerate(valid_urls):
-                        tasks.append((idx, url, headers))
+                        tasks.append((idx, url)) # 这里不用传 headers 了，直接用全局的
 
                     zip_buffer = io.BytesIO()
                     total = len(tasks)
@@ -220,6 +223,7 @@ def show_gallery_area():
                     results = [None] * total
                     finished_count = 0
                     
+                    # 开启8线程并发下载
                     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                         future_to_url = {executor.submit(download_one_image, task): task for task in tasks}
                         for future in concurrent.futures.as_completed(future_to_url):
@@ -237,13 +241,11 @@ def show_gallery_area():
                     
                     st.session_state.zip_buffer = zip_buffer
                     st.session_state.step = 3
-                    st.rerun() # 下载完成后，刷新整个页面以显示下载按钮
+                    st.rerun()
 
-# 调用这个局部刷新函数
 show_gallery_area()
 
-# ================= 7. 下载按钮 (步骤 3) =================
-# 这个放在 fragment 外面，保证下载按钮的稳定显示
+# ================= 7. 下载按钮 =================
 if st.session_state.step == 3 and st.session_state.zip_buffer:
     st.balloons()
     st.success("✨ 极速打包完成！")
