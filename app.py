@@ -41,7 +41,7 @@ with st.sidebar:
     """)
     st.info("💡 提示：所有图片会自动转为 JPG 格式，方便手机查看。")
     st.markdown("---")
-    st.caption("Made with ❤️ by Python")
+    st.caption("Made with ❤️ by TJH")
 
 # ================= 主界面布局 =================
 col1, col2 = st.columns([1, 2])
@@ -142,3 +142,4 @@ if st.button("🚀 开始提取美图", type="primary"):
                 
             except Exception as e:
                 st.error(f"💥 发生了一点小意外: {e}")
+
