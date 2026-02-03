@@ -7,7 +7,7 @@ import time
 import re
 
 # ================= 页面配置 =================
-st.set_page_config(page_title="微信文章图片提取器", page_icon="📷"))
+st.set_page_config(page_title="微信文章图片提取器", page_icon="📷")
 
 st.title(📷 公众号图片一键提取)
 st.markdown(输入微信文章链接，自动打包所有高清图片下载。)
@@ -109,4 +109,5 @@ if st.button(🚀 开始提取, type=primary)
         except Exception as e
 
             st.error(f发生错误 {e})
+
 
