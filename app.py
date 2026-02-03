@@ -15,12 +15,12 @@ st.set_page_config(
     layout="centered"
 )
 
-# ================= 2. 注入 CSS (深度美化) =================
+# ================= 2. 注入 CSS (修复显示不全问题) =================
 st.markdown("""
     <style>
-        /* 1. 全局容器调整：减少顶部留白 */
+        /* 1. 修复顶部遮挡：增加顶部内边距 */
         .block-container {
-            padding-top: 1.5rem !important;
+            padding-top: 3rem !important; /* 从 1.5rem 改回 3rem，防止被顶部栏遮挡 */
             padding-bottom: 1rem !important;
         }
         
@@ -29,7 +29,7 @@ st.markdown("""
             margin-top: 5px;
         }
         
-        /* 3. 图片容器：圆角+悬停微动效 */
+        /* 3. 图片容器 */
         .img-container {
             border-radius: 8px;
             overflow: hidden;
@@ -41,13 +41,13 @@ st.markdown("""
             box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
         
-        /* 4. 自定义标题样式 (解决换行问题) */
+        /* 4. 标题样式修复 (防止切字) */
         .custom-title {
-            font-size: 26px !important; /* 稍微调小字号确保不换行 */
+            font-size: 24px !important; /* 稍微调小一点，确保能放下 */
             font-weight: 700 !important;
-            margin-bottom: 5px !important;
-            white-space: nowrap; /* 强制不换行 */
+            margin-bottom: 8px !important;
             color: #0f1116;
+            line-height: 1.3; /* 增加行高，防止文字重叠 */
         }
         .custom-subtitle {
             font-size: 15px !important;
@@ -56,13 +56,13 @@ st.markdown("""
             line-height: 1.4;
         }
         
-        /* 5. 统计条样式 (共xx张 那一行) */
+        /* 5. 统计条样式 */
         .stats-bar {
             background-color: #f0f2f6;
             padding: 10px 15px;
             border-radius: 8px;
             display: flex;
-            justify-content: space-between; /* 左右对齐 */
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
             border: 1px solid #e0e0e0;
@@ -120,11 +120,10 @@ def download_one_image(img_info):
         pass
     return index, None
 
-# ================= 4. 侧边栏美化 =================
+# ================= 4. 侧边栏 =================
 with st.sidebar:
     st.markdown("### 📚 使用指南")
     
-    # 使用 info 框来包装步骤，看起来更像一个整体
     with st.container(border=True):
         st.markdown("""
         **1. 复制链接** <span style='color:grey; font-size:0.9em'>点击文章右上角 <b>...</b> 复制链接</span>
@@ -140,8 +139,7 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Made with ❤️ TJH")
 
-# ================= 5. 主界面美化 =================
-# 调整比例为 [1.3, 2]，给左边图片稍微多一点点空间，右边也不会太挤
+# ================= 5. 主界面 =================
 col1, col2 = st.columns([1.3, 2], gap="large")
 
 with col1:
@@ -153,8 +151,7 @@ with col1:
         st.info("请上传 heart_collage.png")
 
 with col2:
-    # --- 标题区 (HTML自定义排版) ---
-    # 这里直接用 HTML 写标题，完全控制行高和字号，确保不换行
+    # --- 标题区 (已修复遮挡) ---
     st.markdown("""
         <div style="margin-bottom: 20px;">
             <div class="custom-title">⚡ 微信公众号·极速取图</div>
@@ -162,7 +159,6 @@ with col2:
         </div>
     """, unsafe_allow_html=True)
     
-    # 输入框和按钮
     url = st.text_input("👇 在此粘贴链接:", placeholder="https://mp.weixin.qq.com/s/...", label_visibility="collapsed")
     
     if st.button("🔍 第一步：解析图片", type="primary", use_container_width=True):
@@ -171,7 +167,7 @@ with col2:
         elif "mp.weixin.qq.com" not in url:
             st.error("❌ 链接格式不对。")
         else:
-            with st.spinner('正在在那庞大的互联网里挖掘图片...'):
+            with st.spinner('正在分析网页...'):
                 try:
                     resp = requests.get(url, headers=HEADERS, timeout=10)
                     resp.raise_for_status()
@@ -199,12 +195,12 @@ with col2:
                 except Exception as e:
                     st.error(f"解析失败: {e}")
 
-# ================= 6. 局部刷新区域 (页面核心) =================
+# ================= 6. 局部刷新区域 =================
 
 @st.fragment
 def show_gallery_area():
     if st.session_state.step >= 2 and st.session_state.scraped_images:
-        st.markdown("---") # 分割线
+        st.markdown("---")
         
         total_items = len(st.session_state.scraped_images)
         total_pages = math.ceil(total_items / ITEMS_PER_PAGE)
@@ -214,7 +210,7 @@ def show_gallery_area():
         end_idx = start_idx + ITEMS_PER_PAGE
         current_batch = st.session_state.scraped_images[start_idx:end_idx]
         
-        # --- 美化后的统计条 (左右对齐，整齐划一) ---
+        # --- 统计条 ---
         st.markdown(
             f"""
             <div class="stats-bar">
@@ -225,7 +221,7 @@ def show_gallery_area():
             unsafe_allow_html=True
         )
         
-        # --- 顶部按钮栏 ---
+        # --- 按钮栏 ---
         c1, c2, c3, c4, c5 = st.columns([1, 1, 0.2, 1, 1])
         
         if c1.button("✅ 全选本页", use_container_width=True):
