@@ -9,11 +9,33 @@ import os
 # ================= 1. 页面配置 =================
 st.set_page_config(
     page_title="微信文章图片提取器", 
-    page_icon="📷",
-    layout="centered"
+    page_icon="🎨",
+    layout="centered" # 保持居中布局，但在手机上会更聚拢
 )
 
-# ================= 2. 侧边栏：使用教程 (保持不变) =================
+# ================= 2. 注入 CSS (美化核心) =================
+# 这段代码会把页面顶部的大片空白去掉，并调整字体间距
+st.markdown("""
+    <style>
+        /* 1. 减少顶部留白 */
+        .block-container {
+            padding-top: 2rem !important;
+            padding-bottom: 1rem !important;
+        }
+        /* 2. 让图片圆角化，看起来更精致 */
+        img {
+            border-radius: 10px;
+        }
+        /* 3. 调整标题的行高，防止挤占太多空间 */
+        h2 {
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+            margin-bottom: 0.5rem !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# ================= 3. 侧边栏：使用教程 (保持不变) =================
 with st.sidebar:
     st.header("📖 使用教程")
     st.markdown("""
@@ -29,34 +51,41 @@ with st.sidebar:
     """)
     st.info("💡 提示：所有图片会自动转为 JPG 格式，方便手机查看。")
     st.markdown("---")
-    st.caption("Made with ❤️ TJH")
+    st.caption("Made with ❤️")
 
-# ================= 3. 主界面布局 (左图右字) =================
-col1, col2 = st.columns([1, 2])
+# ================= 4. 主界面布局 (紧凑型) =================
+# 调整比例为 [1.2, 2]，给右边文字更多空间，防止换行
+col1, col2 = st.columns([1.2, 2], gap="medium")
 
+# --- 左侧：图片展示区 ---
 with col1:
-    # 🔥 这里替换了原来的机器人，改为显示爱心拼图
-    # 代码会自动检测您是否上传了 heart_collage.png
+    # 检测并显示图片
     if os.path.exists("heart_collage.png"):
         st.image("heart_collage.png", use_column_width=True)
     elif os.path.exists("heart_collage.jpg"):
         st.image("heart_collage.jpg", use_column_width=True)
     else:
-        # 如果还没上传图片，显示一个提示
         st.info("请上传名为 heart_collage.png 的图片")
 
+# --- 右侧：操作控制区 (把标题和输入框都放这里) ---
 with col2:
-    # 🔥 这里保留了您习惯的原始标题
-    st.title("🎨 公众号图片一键提取")
-    st.markdown("##### 粘贴微信文章链接，一键打包高清原图！")
+    # 1. 标题 (使用 H2 标签代替 Title，防止换行)
+    st.markdown("## 🎨 公众号图片一键提取")
+    
+    # 2. 副标题
+    st.caption("粘贴微信文章链接，一键打包高清原图！")
+    
+    st.markdown("---") # 分割线
+    
+    # 3. 输入框 (紧挨着标题，减少留白)
+    url = st.text_input("👇 在此粘贴链接:", placeholder="https://mp.weixin.qq.com/s/...", label_visibility="collapsed")
+    
+    # 4. 按钮
+    start_button = st.button("🚀 开始提取", type="primary", use_container_width=True)
 
-st.markdown("---")
-
-# ================= 4. 输入区域 =================
-url = st.text_input("👇在此粘贴链接:", placeholder="https://mp.weixin.qq.com/s/...", help="请确保链接是微信公众号文章")
-
-# ================= 5. 核心逻辑 (保持不变) =================
-if st.button("🚀 开始提取", type="primary"):
+# ================= 5. 核心逻辑 =================
+# 注意：逻辑移到了 columns 外面，或者在 button 点击后执行
+if start_button:
     if not url:
         st.warning("⚠️ 还没输入链接呢！")
     elif "mp.weixin.qq.com" not in url:
@@ -87,16 +116,16 @@ if st.button("🚀 开始提取", type="primary"):
                     st.error("😭 哎呀，没找到图片，可能是文章被删了。")
                     st.stop()
 
-                # 准备 ZIP
                 zip_buffer = io.BytesIO()
                 success_count = 0
                 total = len(valid_imgs)
                 
+                # 进度条 (放在右侧列里显示会更好看吗？或者放在最下面)
+                # 这里我们放在最下面全宽显示，比较清晰
                 progress_bar = st.progress(0)
                 
                 with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zf:
                     for i, img_url in enumerate(valid_imgs):
-                        # 格式处理：强制转 JPG
                         img_url = img_url.replace("/640?from=appmsg", "/640?from=appmsg&tp=jpg")
                         img_url = img_url.replace("&tp=webp", "&tp=jpg")
                         img_url = img_url.replace("wx_fmt=webp", "wx_fmt=jpg")
@@ -114,18 +143,17 @@ if st.button("🚀 开始提取", type="primary"):
 
                 progress_bar.progress(100)
                 time.sleep(0.5)
-                
-                # 🎉 成功特效：依然保留放气球
                 st.balloons()
-                
                 st.success(f"✨ 搞定！成功捕获 {success_count} 张高清美图！")
                 
+                # 下载按钮也全宽显示
                 st.download_button(
                     label="📦 点击下载 ZIP 压缩包",
                     data=zip_buffer.getvalue(),
-                    file_name="wechat_images.zip",
+                    file_name="memories_images.zip",
                     mime="application/zip",
-                    type="primary"
+                    type="primary",
+                    use_container_width=True # 让按钮变宽，更好点
                 )
                 
             except Exception as e:
