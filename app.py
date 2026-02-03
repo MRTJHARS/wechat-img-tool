@@ -15,32 +15,66 @@ st.set_page_config(
     layout="centered"
 )
 
-# ================= 2. 注入 CSS (优化渲染 + 字体美化) =================
+# ================= 2. 注入 CSS (深度美化) =================
 st.markdown("""
     <style>
+        /* 1. 全局容器调整：减少顶部留白 */
         .block-container {
-            padding-top: 2rem !important;
+            padding-top: 1.5rem !important;
             padding-bottom: 1rem !important;
         }
+        
+        /* 2. 复选框优化 */
         .stCheckbox {
             margin-top: 5px;
         }
-        div[data-testid="column"] button {
-            width: 100%;
-        }
+        
+        /* 3. 图片容器：圆角+悬停微动效 */
         .img-container {
             border-radius: 8px;
             overflow: hidden;
-            border: 1px solid #f0f0f0;
-            transition: transform 0.2s; /* 添加一个小小的悬停动效 */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
         }
         .img-container:hover {
             transform: scale(1.02);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
-        /* 侧边栏文字优化 */
-        .sidebar-text {
-            font-size: 14px;
+        
+        /* 4. 自定义标题样式 (解决换行问题) */
+        .custom-title {
+            font-size: 26px !important; /* 稍微调小字号确保不换行 */
+            font-weight: 700 !important;
+            margin-bottom: 5px !important;
+            white-space: nowrap; /* 强制不换行 */
+            color: #0f1116;
+        }
+        .custom-subtitle {
+            font-size: 15px !important;
             color: #555;
+            margin-top: 0 !important;
+            line-height: 1.4;
+        }
+        
+        /* 5. 统计条样式 (共xx张 那一行) */
+        .stats-bar {
+            background-color: #f0f2f6;
+            padding: 10px 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between; /* 左右对齐 */
+            align-items: center;
+            margin-bottom: 15px;
+            border: 1px solid #e0e0e0;
+        }
+        .stats-text-main {
+            font-weight: bold;
+            color: #333;
+            font-size: 16px;
+        }
+        .stats-text-sub {
+            color: #666;
+            font-size: 14px;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -86,30 +120,29 @@ def download_one_image(img_info):
         pass
     return index, None
 
-# ================= 4. 侧边栏 (文案美化) =================
+# ================= 4. 侧边栏美化 =================
 with st.sidebar:
-    st.title("📚 新手指南")
+    st.markdown("### 📚 使用指南")
     
-    st.markdown("""
-    ### 1️⃣ **复制链接**
-    打开微信文章，点击右上角 **...** 复制链接。
+    # 使用 info 框来包装步骤，看起来更像一个整体
+    with st.container(border=True):
+        st.markdown("""
+        **1. 复制链接** <span style='color:grey; font-size:0.9em'>点击文章右上角 <b>...</b> 复制链接</span>
+        
+        **2. 粘贴解析** <span style='color:grey; font-size:0.9em'>粘贴到输入框，点击解析</span>
+        
+        **3. 极速挑选** <span style='color:grey; font-size:0.9em'>勾选喜欢的图片 (支持全选)</span>
+        
+        **4. 一键打包** <span style='color:grey; font-size:0.9em'>点击生成，高速下载原图</span>
+        """, unsafe_allow_html=True)
     
-    ### 2️⃣ **粘贴解析**
-    将链接粘贴到右侧输入框，点击 **“🔍 解析图片”**。
-    
-    ### 3️⃣ **极速挑选**
-    无需等待，点选你喜欢的图片 (支持本页全选)。
-    
-    ### 4️⃣ **一键打包**
-    点击 **“🚀 生成压缩包”**，极速下载高清原图！
-    """)
-    
+    st.success("⚡ **极速模式已就绪**\n多线程并发下载，速度提升 500%！")
     st.markdown("---")
-    st.success("💡 **提示：**\n已开启极速多线程模式，下载速度提升 500%！")
     st.caption("Made with ❤️ TJH")
 
-# ================= 5. 主界面 (文案美化) =================
-col1, col2 = st.columns([1.2, 2], gap="medium")
+# ================= 5. 主界面美化 =================
+# 调整比例为 [1.3, 2]，给左边图片稍微多一点点空间，右边也不会太挤
+col1, col2 = st.columns([1.3, 2], gap="large")
 
 with col1:
     if os.path.exists("heart_collage.png"):
@@ -117,16 +150,19 @@ with col1:
     elif os.path.exists("heart_collage.jpg"):
         st.image("heart_collage.jpg", use_column_width=True)
     else:
-        st.info("请上传名为 heart_collage.png 的图片")
+        st.info("请上传 heart_collage.png")
 
 with col2:
-    # --- 标题区美化 ---
-    st.title("⚡ 微信公众号·极速取图")
-    st.markdown("#### 🚀 **一键保存美好瞬间，高清原图不压缩**")
-    st.caption("支持批量下载 | 自动转JPG | 极速多线程 | 隐私安全")
+    # --- 标题区 (HTML自定义排版) ---
+    # 这里直接用 HTML 写标题，完全控制行高和字号，确保不换行
+    st.markdown("""
+        <div style="margin-bottom: 20px;">
+            <div class="custom-title">⚡ 微信公众号·极速取图</div>
+            <div class="custom-subtitle">🚀 一键保存美好瞬间 · 高清原图不压缩</div>
+        </div>
+    """, unsafe_allow_html=True)
     
-    st.markdown("---")
-    
+    # 输入框和按钮
     url = st.text_input("👇 在此粘贴链接:", placeholder="https://mp.weixin.qq.com/s/...", label_visibility="collapsed")
     
     if st.button("🔍 第一步：解析图片", type="primary", use_container_width=True):
@@ -145,7 +181,6 @@ with col2:
                     
                     imgs = content.find_all('img')
                     found_imgs = []
-                    
                     for img in imgs:
                         src = img.get('data-src')
                         if src and len(src) > 10: 
@@ -164,12 +199,12 @@ with col2:
                 except Exception as e:
                     st.error(f"解析失败: {e}")
 
-# ================= 6. 局部刷新区域 =================
+# ================= 6. 局部刷新区域 (页面核心) =================
 
 @st.fragment
 def show_gallery_area():
     if st.session_state.step >= 2 and st.session_state.scraped_images:
-        st.divider()
+        st.markdown("---") # 分割线
         
         total_items = len(st.session_state.scraped_images)
         total_pages = math.ceil(total_items / ITEMS_PER_PAGE)
@@ -179,14 +214,13 @@ def show_gallery_area():
         end_idx = start_idx + ITEMS_PER_PAGE
         current_batch = st.session_state.scraped_images[start_idx:end_idx]
         
-        # --- 文案美化：页码显示 ---
-        # 使用 Markdown + HTML 混合排版，让数字更显眼
+        # --- 美化后的统计条 (左右对齐，整齐划一) ---
         st.markdown(
             f"""
-            #### 🖼️ 已成功捕获 **{total_items}** 张美图 
-            <span style='color:grey; font-size: 0.9em; font-weight: normal'>
-            (当前浏览第 {current_p} / {total_pages} 页)
-            </span>
+            <div class="stats-bar">
+                <div class="stats-text-main">📸 已捕获 {total_items} 张美图</div>
+                <div class="stats-text-sub">第 {current_p} / {total_pages} 页</div>
+            </div>
             """, 
             unsafe_allow_html=True
         )
