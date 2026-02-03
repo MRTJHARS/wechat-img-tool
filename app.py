@@ -113,7 +113,7 @@ with st.sidebar:
         """, unsafe_allow_html=True)
     st.success("💖 **甜蜜提示**\n原图直出不压缩，画质超清晰！")
     st.markdown("---")
-    st.caption("Made with ❤️ TJH")
+    st.caption("Made with ❤️ for Couples")
 
 # ================= 5. 主界面 =================
 col1, col2 = st.columns([1.3, 2], gap="large")
@@ -164,8 +164,7 @@ with col2:
                         st.session_state.zip_buffer = None
                         st.session_state.current_page = 1
                         
-                        # 🔥 关键修改：移除自动全选的逻辑 🔥
-                        # 确保所有勾选框初始状态为 False (如果不设置，默认就是 False)
+                        # 确保默认不勾选
                         for i in range(len(found_imgs)):
                              st.session_state[f"img_chk_{i}"] = False
                              
@@ -173,7 +172,7 @@ with col2:
                 except Exception as e:
                     st.error(f"出错啦: {e}")
 
-# ================= 6. 局部刷新区域 =================
+# ================= 6. 局部刷新区域 (含布局修复) =================
 
 @st.fragment
 def show_gallery_area():
@@ -214,19 +213,24 @@ def show_gallery_area():
         c5.button("下一页 ➡️", on_click=next_page, disabled=(current_p == total_pages), use_container_width=True)
 
         with st.form("image_selection_form", border=False):
-            cols = st.columns(3)
-            for i, img_url in enumerate(current_batch):
-                global_index = start_idx + i
-                col = cols[i % 3] 
-                with col:
-                    preview_url = img_url.replace("tp=webp", "tp=jpg")
-                    st.markdown(
-                        f'''<div class="img-container"><img src="{preview_url}" loading="lazy" style="width:100%; display:block; aspect-ratio: 1/1; object-fit: cover;" referrerpolicy="no-referrer"></div>''', 
-                        unsafe_allow_html=True
-                    )
-                    # 这里的 value 默认会去 session_state 找 key，找不到默认为 False
-                    # 因为我们在上面解析时强制设为了 False，所以这里初始就是不勾选
-                    st.checkbox(f"图片 {global_index+1}", key=f"img_chk_{global_index}")
+            # 🔥 关键修改：按行渲染 🔥
+            # 每次处理3张图片，创建一行。这样在手机上就是 Block1(1,2,3) -> Block2(4,5,6)
+            # 保证了手机端顺序是 1,2,3,4,5,6...
+            for row_start in range(0, len(current_batch), 3):
+                cols = st.columns(3) # 创建新的一行（3列）
+                chunk = current_batch[row_start : row_start + 3] # 取出这一行的图片
+                
+                for col_idx, img_url in enumerate(chunk):
+                    local_index = row_start + col_idx
+                    global_index = start_idx + local_index
+                    
+                    with cols[col_idx]:
+                        preview_url = img_url.replace("tp=webp", "tp=jpg")
+                        st.markdown(
+                            f'''<div class="img-container"><img src="{preview_url}" loading="lazy" style="width:100%; display:block; aspect-ratio: 1/1; object-fit: cover;" referrerpolicy="no-referrer"></div>''', 
+                            unsafe_allow_html=True
+                        )
+                        st.checkbox(f"图片 {global_index+1}", key=f"img_chk_{global_index}")
             
             st.markdown("---")
             submitted = st.form_submit_button("🎁 生成压缩包 (提取选中图片)", type="primary", use_container_width=True)
@@ -274,7 +278,7 @@ show_gallery_area()
 # ================= 7. 下载按钮 =================
 if st.session_state.step == 3 and st.session_state.zip_buffer:
     st.balloons()
-    st.success("✨ 打包完成啦！快去使用吧！")
+    st.success("✨ 打包完成啦！快去发朋友圈吧！")
     
     st.download_button(
         label="📦 点击下载图片包 (ZIP)",
@@ -293,4 +297,3 @@ if st.session_state.step == 3 and st.session_state.zip_buffer:
         keys_to_remove = [k for k in st.session_state.keys() if k.startswith("img_chk_")]
         for k in keys_to_remove: del st.session_state[k]
         st.rerun()
-
