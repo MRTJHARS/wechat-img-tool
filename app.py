@@ -15,31 +15,25 @@ st.set_page_config(
     layout="centered"
 )
 
-# ================= 2. 注入 CSS (保持之前的完美排版) =================
+# ================= 2. 注入 CSS (美化版) =================
 st.markdown("""
     <style>
-        /* 顶部防遮挡 */
         .block-container {
             padding-top: 3rem !important;
             padding-bottom: 1rem !important;
         }
-        
         .stCheckbox { margin-top: 5px; }
-        
-        /* 图片容器美化 */
         .img-container {
-            border-radius: 12px; /* 圆角更大一点，更圆润 */
+            border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 4px 10px rgba(255, 182, 193, 0.2); /* 淡淡的粉色阴影 */
+            box-shadow: 0 4px 10px rgba(255, 182, 193, 0.2);
             transition: transform 0.2s;
-            border: 1px solid #ffe4e1; /* 浅粉色边框 */
+            border: 1px solid #ffe4e1;
         }
         .img-container:hover {
             transform: scale(1.03);
             box-shadow: 0 8px 20px rgba(255, 105, 180, 0.3);
         }
-        
-        /* 标题样式 */
         .custom-title {
             font-size: 24px !important;
             font-weight: 700 !important;
@@ -49,15 +43,13 @@ st.markdown("""
         }
         .custom-subtitle {
             font-size: 15px !important;
-            color: #ff6b81; /* 副标题改成温柔的粉红色 */
+            color: #ff6b81;
             margin-top: 0 !important;
             line-height: 1.4;
             font-weight: 500;
         }
-        
-        /* 统计条样式 */
         .stats-bar {
-            background-color: #fff0f5; /* 薰衣草 blush 背景 */
+            background-color: #fff0f5;
             padding: 10px 15px;
             border-radius: 8px;
             display: flex;
@@ -102,10 +94,9 @@ def download_one_image(img_info):
     except: pass
     return index, None
 
-# ================= 4. 侧边栏 (Emoji 装修版) =================
+# ================= 4. 侧边栏 =================
 with st.sidebar:
     st.markdown("### 💌 找图小助手")
-    
     with st.container(border=True):
         st.markdown("""
         **1️⃣ 复制链接** 🔗  
@@ -115,15 +106,14 @@ with st.sidebar:
         <span style='color:grey; font-size:0.9em'>粘贴到右侧框框，点击解析</span>
         
         **3️⃣ 挑选最爱** 💑  
-        <span style='color:grey; font-size:0.9em'>勾选喜欢的头像 (支持全选)</span>
+        <span style='color:grey; font-size:0.9em'>勾选喜欢的头像 (默认不选)</span>
         
         **4️⃣ 打包带走** 🎁  
         <span style='color:grey; font-size:0.9em'>一键生成压缩包，高清保存</span>
         """, unsafe_allow_html=True)
-    
     st.success("💖 **甜蜜提示**\n原图直出不压缩，画质超清晰！")
     st.markdown("---")
-    st.caption("Made with ❤️ TJH")
+    st.caption("Made with ❤️ for Couples")
 
 # ================= 5. 主界面 =================
 col1, col2 = st.columns([1.3, 2], gap="large")
@@ -137,7 +127,6 @@ with col1:
         st.info("请上传名为 heart_collage.png 的图片")
 
 with col2:
-    # --- 标题文案修改 ---
     st.markdown("""
         <div style="margin-bottom: 20px;">
             <div class="custom-title">👩‍❤️‍👨 微信公众号·情头提取神器</div>
@@ -174,8 +163,12 @@ with col2:
                         st.session_state.step = 2 
                         st.session_state.zip_buffer = None
                         st.session_state.current_page = 1
+                        
+                        # 🔥 关键修改：移除自动全选的逻辑 🔥
+                        # 确保所有勾选框初始状态为 False (如果不设置，默认就是 False)
                         for i in range(len(found_imgs)):
-                            st.session_state[f"img_chk_{i}"] = True
+                             st.session_state[f"img_chk_{i}"] = False
+                             
                         st.rerun()
                 except Exception as e:
                     st.error(f"出错啦: {e}")
@@ -195,7 +188,6 @@ def show_gallery_area():
         end_idx = start_idx + ITEMS_PER_PAGE
         current_batch = st.session_state.scraped_images[start_idx:end_idx]
         
-        # --- 统计条 (粉色系) ---
         st.markdown(
             f"""
             <div class="stats-bar">
@@ -232,6 +224,8 @@ def show_gallery_area():
                         f'''<div class="img-container"><img src="{preview_url}" loading="lazy" style="width:100%; display:block; aspect-ratio: 1/1; object-fit: cover;" referrerpolicy="no-referrer"></div>''', 
                         unsafe_allow_html=True
                     )
+                    # 这里的 value 默认会去 session_state 找 key，找不到默认为 False
+                    # 因为我们在上面解析时强制设为了 False，所以这里初始就是不勾选
                     st.checkbox(f"图片 {global_index+1}", key=f"img_chk_{global_index}")
             
             st.markdown("---")
@@ -280,7 +274,7 @@ show_gallery_area()
 # ================= 7. 下载按钮 =================
 if st.session_state.step == 3 and st.session_state.zip_buffer:
     st.balloons()
-    st.success("✨ 打包完成啦！快去使用吧！")
+    st.success("✨ 打包完成啦！快去发朋友圈吧！")
     
     st.download_button(
         label="📦 点击下载图片包 (ZIP)",
@@ -299,4 +293,3 @@ if st.session_state.step == 3 and st.session_state.zip_buffer:
         keys_to_remove = [k for k in st.session_state.keys() if k.startswith("img_chk_")]
         for k in keys_to_remove: del st.session_state[k]
         st.rerun()
-
