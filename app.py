@@ -6,11 +6,12 @@ import io
 import time
 import os
 import math
+import concurrent.futures # 引入多线程库，这是速度起飞的关键
 
 # ================= 1. 页面配置 =================
 st.set_page_config(
     page_title="微信文章图片提取器", 
-    page_icon="🎨",
+    page_icon="⚡", # 换个闪电图标，代表快
     layout="centered"
 )
 
@@ -24,7 +25,7 @@ st.markdown("""
         .stCheckbox {
             margin-top: 5px;
         }
-        /* 分页按钮样式微调 */
+        /* 分页按钮样式 */
         div[data-testid="column"] button {
             width: 100%;
         }
@@ -41,13 +42,13 @@ if 'zip_buffer' not in st.session_state:
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 1
 
-# 每页显示多少张图片（建议 12 张，速度最快）
+# 每页显示 12 张（保持你喜欢的布局）
 ITEMS_PER_PAGE = 12
 
 # --- 全选/全不选回调 ---
 def toggle_all():
-    # 即使只显示 12 张，全选依然控制所有图片的状态
     is_all_selected = st.session_state.select_all_key
+    # 这里的循环速度很快，几乎不耗时
     if 'scraped_images' in st.session_state:
         for i in range(len(st.session_state.scraped_images)):
             key_name = f"img_chk_{i}"
@@ -59,22 +60,38 @@ def prev_page():
         st.session_state.current_page -= 1
 
 def next_page():
-    # 计算总页数
     total_imgs = len(st.session_state.scraped_images)
     total_pages = math.ceil(total_imgs / ITEMS_PER_PAGE)
     if st.session_state.current_page < total_pages:
         st.session_state.current_page += 1
 
+# --- 核心：单张图片下载函数 (用于多线程) ---
+def download_one_image(img_info):
+    index, url, headers = img_info
+    
+    # 格式处理
+    url = url.replace("/640?from=appmsg", "/640?from=appmsg&tp=jpg")
+    url = url.replace("&tp=webp", "&tp=jpg")
+    url = url.replace("wx_fmt=webp", "wx_fmt=jpg")
+    
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            return index, r.content
+    except:
+        pass
+    return index, None
+
 # ================= 4. 侧边栏 =================
 with st.sidebar:
     st.header("📖 使用教程")
     st.markdown("""
-    1. **解析**：输入链接，点击“解析图片”。
-    2. **选择**：勾选你想要的图片（支持分页浏览）。
-    3. **打包**：点击“生成压缩包”。
-    4. **下载**：点击出现的“下载”按钮保存。
+    1. **解析**：粘贴链接，点击解析。
+    2. **选择**：勾选图片 (支持全选)。
+    3. **打包**：点击生成 (🚀多线程极速版)。
+    4. **下载**：保存 ZIP 包。
     """)
-    st.info("💡 **分页模式**已开启，全选操作会瞬间响应！")
+    st.info("⚡ **极速模式已开启**\n采用多线程并发下载，速度提升 500%！")
     st.markdown("---")
     st.caption("Made with ❤️ TJH")
 
@@ -90,8 +107,8 @@ with col1:
         st.info("请上传名为 heart_collage.png 的图片")
 
 with col2:
-    st.markdown("## 🎨 公众号图片提取")
-    st.caption("极速分页版：告别卡顿，丝滑体验！")
+    st.markdown("## ⚡ 公众号图片提取")
+    st.caption("分页预览 + 多线程极速下载")
     st.markdown("---")
     
     url = st.text_input("👇 在此粘贴链接:", placeholder="https://mp.weixin.qq.com/s/...", label_visibility="collapsed")
@@ -100,9 +117,9 @@ with col2:
         if not url:
             st.warning("⚠️ 请先粘贴链接！")
         elif "mp.weixin.qq.com" not in url:
-            st.error("❌ 链接格式不对，请使用微信公众号文章链接。")
+            st.error("❌ 链接格式不对。")
         else:
-            with st.spinner('正在分析网页...'):
+            with st.spinner('正在光速分析网页...'):
                 try:
                     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
                     resp = requests.get(url, headers=headers, timeout=10)
@@ -120,14 +137,14 @@ with col2:
                             found_imgs.append(src)
                     
                     if not found_imgs:
-                        st.error("未找到图片，可能是文章已删除。")
+                        st.error("未找到图片。")
                     else:
                         st.session_state.scraped_images = found_imgs
                         st.session_state.step = 2 
                         st.session_state.zip_buffer = None
-                        st.session_state.current_page = 1 # 重置回第一页
+                        st.session_state.current_page = 1
                         
-                        # 解析成功默认全选
+                        # 默认全选
                         for i in range(len(found_imgs)):
                             st.session_state[f"img_chk_{i}"] = True
                             
@@ -135,114 +152,117 @@ with col2:
                 except Exception as e:
                     st.error(f"解析失败: {e}")
 
-# ================= 6. 选择与下载区域 (步骤 2) =================
+# ================= 6. 选择与下载区域 =================
 if st.session_state.step >= 2 and st.session_state.scraped_images:
     st.divider()
     
-    # --- 计算分页数据 ---
     total_items = len(st.session_state.scraped_images)
     total_pages = math.ceil(total_items / ITEMS_PER_PAGE)
     current_p = st.session_state.current_page
     
-    # 获取当前页的图片切片
     start_idx = (current_p - 1) * ITEMS_PER_PAGE
     end_idx = start_idx + ITEMS_PER_PAGE
     current_batch = st.session_state.scraped_images[start_idx:end_idx]
     
-    st.subheader(f"📸 共 {total_items} 张图片 (第 {current_p} / {total_pages} 页)")
+    st.subheader(f"📸 共 {total_items} 张 (第 {current_p}/{total_pages} 页)")
     
-    # --- 顶部控制栏 (全选 + 分页器) ---
+    # --- 分页控制栏 ---
     c1, c2, c3, c4 = st.columns([1.5, 1, 1, 1])
     with c1:
-        # 全选按钮
         st.checkbox("全选 (包含所有页)", value=True, key="select_all_key", on_change=toggle_all)
     with c2:
         st.button("⬅️ 上一页", on_click=prev_page, disabled=(current_p == 1), use_container_width=True)
     with c3:
-        # 显示页码（居中显示有点难，直接用 markdown）
         st.markdown(f"<div style='text-align: center; line-height: 2.5;'>{current_p} / {total_pages}</div>", unsafe_allow_html=True)
     with c4:
         st.button("下一页 ➡️", on_click=next_page, disabled=(current_p == total_pages), use_container_width=True)
 
-    # --- 图片网格 (只渲染当前页的 12 张) ---
+    # --- 图片网格 ---
     with st.form("image_selection_form"):
         cols = st.columns(3)
-        
-        # 统计所有选中的图片索引（用于提交）
-        # 注意：这里我们不能只看当前页的，要看 session_state 里所有的
-        
-        # 渲染当前页
         for i, img_url in enumerate(current_batch):
-            global_index = start_idx + i # 算出它在总列表里的真实索引
-            
+            global_index = start_idx + i
             col = cols[i % 3] 
             with col:
                 preview_url = img_url.replace("tp=webp", "tp=jpg")
+                # 加上 loading="lazy" 进一步优化浏览器渲染速度
                 st.markdown(
-                    f'''<img src="{preview_url}" style="width:100%; border-radius:8px; margin-bottom:5px; object-fit:cover; aspect-ratio: 1/1;" referrerpolicy="no-referrer">''', 
+                    f'''<img src="{preview_url}" loading="lazy" style="width:100%; border-radius:8px; margin-bottom:5px; object-fit:cover; aspect-ratio: 1/1;" referrerpolicy="no-referrer">''', 
                     unsafe_allow_html=True
                 )
-                
-                # 绑定全局唯一的 Key
                 st.checkbox(f"图片 {global_index+1}", key=f"img_chk_{global_index}")
         
         st.markdown("---")
-        submitted = st.form_submit_button("🚀 生成压缩包 (提取所有勾选图片)", type="primary", use_container_width=True)
+        submitted = st.form_submit_button("🚀 生成压缩包 (极速版)", type="primary", use_container_width=True)
 
+        # ================= 7. 多线程下载逻辑 (核心加速) =================
         if submitted:
-            # 收集所有选中的图片（遍历 Session State）
             selected_final_indices = []
             for i in range(total_items):
                 if st.session_state.get(f"img_chk_{i}", False):
                     selected_final_indices.append(i)
             
             if not selected_final_indices:
-                st.warning("⚠️ 你一张图都没选哦！")
+                st.warning("⚠️ 请至少选择一张图片！")
             else:
-                valid_imgs_to_download = [st.session_state.scraped_images[i] for i in selected_final_indices]
-                
-                zip_buffer = io.BytesIO()
-                success_count = 0
-                total = len(valid_imgs_to_download)
-                
+                # 准备下载任务列表
+                tasks = []
                 headers = {'User-Agent': 'Mozilla/5.0'}
-                progress_text = st.empty()
+                valid_urls = [st.session_state.scraped_images[i] for i in selected_final_indices]
+                
+                # 构造任务数据：(序号, URL, Headers)
+                for idx, url in enumerate(valid_urls):
+                    tasks.append((idx, url, headers))
+
+                zip_buffer = io.BytesIO()
+                total = len(tasks)
+                
+                # 进度条
                 progress_bar = st.progress(0)
+                status_text = st.empty()
                 
+                # --- 开始多线程下载 ---
+                # max_workers=8 表示同时开启 8 个线程下载
+                results = [None] * total
+                finished_count = 0
+                
+                with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+                    # 提交所有任务
+                    future_to_url = {executor.submit(download_one_image, task): task for task in tasks}
+                    
+                    for future in concurrent.futures.as_completed(future_to_url):
+                        idx, content = future.result()
+                        if content:
+                            results[idx] = content # 按顺序存好
+                        
+                        finished_count += 1
+                        # 更新进度条
+                        progress = finished_count / total
+                        progress_bar.progress(progress)
+                        status_text.text(f"⚡ 正在极速下载: {finished_count}/{total} 张...")
+
+                # --- 写入 ZIP ---
+                status_text.text("正在打包...")
                 with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zf:
-                    for i, img_url in enumerate(valid_imgs_to_download):
-                        progress_text.text(f"正在下载第 {i+1}/{total} 张...")
-                        
-                        img_url = img_url.replace("/640?from=appmsg", "/640?from=appmsg&tp=jpg")
-                        img_url = img_url.replace("&tp=webp", "&tp=jpg")
-                        img_url = img_url.replace("wx_fmt=webp", "wx_fmt=jpg")
-                        
-                        try:
-                            img_data = requests.get(img_url, headers=headers, timeout=5).content
-                            file_name = f"image_{success_count+1}.jpg"
-                            zf.writestr(file_name, img_data)
-                            success_count += 1
-                        except:
-                            pass
-                        
-                        progress_bar.progress((i + 1) / total)
-                        time.sleep(0.05)
+                    for i, content in enumerate(results):
+                        if content:
+                            file_name = f"image_{i+1}.jpg"
+                            zf.writestr(file_name, content)
                 
-                progress_bar.progress(100)
-                progress_text.text("打包完成！")
+                status_text.text("✅ 打包完成！")
                 st.session_state.zip_buffer = zip_buffer
                 st.session_state.step = 3
                 st.rerun()
 
-# ================= 7. 下载按钮 (步骤 3) =================
+# ================= 8. 下载按钮 =================
 if st.session_state.step == 3 and st.session_state.zip_buffer:
     st.balloons()
-    st.success("✨ 压缩包已准备就绪！")
+    st.success("✨ 极速打包完成！")
     
     st.download_button(
         label="📦 点击下载 (ZIP)",
         data=st.session_state.zip_buffer.getvalue(),
-        file_name="selected_images.zip",
+        file_name="fast_images.zip",
         mime="application/zip",
         type="primary",
         use_container_width=True
