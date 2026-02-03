@@ -123,7 +123,7 @@ with st.sidebar:
     
     st.success("💖 **甜蜜提示**\n原图直出不压缩，画质超清晰！")
     st.markdown("---")
-    st.caption("Made with ❤️ for Couples")
+    st.caption("Made with ❤️ TJH")
 
 # ================= 5. 主界面 =================
 col1, col2 = st.columns([1.3, 2], gap="large")
@@ -299,3 +299,4 @@ if st.session_state.step == 3 and st.session_state.zip_buffer:
         keys_to_remove = [k for k in st.session_state.keys() if k.startswith("img_chk_")]
         for k in keys_to_remove: del st.session_state[k]
         st.rerun()
+
